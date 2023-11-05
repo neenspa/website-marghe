@@ -1,0 +1,39 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: clone-build-push-run-vemshop-frontend
+  namespace: shop-pipelines
+spec:
+  pipelineRef:
+    name: clone-build-push
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    - name: docker-credentials
+      secret:
+        secretName: dockerconfig-secret
+    - name: git-credentials
+      secret:
+        secretName: git-credentials
+    - name: git-credentials-pipeline
+      secret:
+        secretName: git-credentials-pipeline
+  params:
+    - name: repo-url
+      value: 'git@bitbucket.org:ipa-team/vem-shop-frontend.git'
+    - name: deployment-repo-url
+      value: 'git@bitbucket.org:ipa-team/shop-demo.git'
+    - name: image-reference
+      value: docker.io/ipateam/vemshop-frontend
+    - name: revision
+      value: master
+    - name: build-args
+      value: ''
+    - name: kustomization-path
+      value: deploy/kubernetes/manifests/base

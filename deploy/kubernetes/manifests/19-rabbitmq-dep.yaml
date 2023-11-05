@@ -1,0 +1,44 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels:
+    name: rabbitmq
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+  namespace: website-marghe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: rabbitmq
+  template:
+    metadata:
+      labels:
+        name: rabbitmq
+        backstage.io/kubernetes-id: website-marghe
+        app.kubernetes.io/name: website-marghe
+        rht-gitops.com/janus-argocd: website-marghe
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.6.8-management
+          ports:
+            - containerPort: 15672
+              name: management
+            - containerPort: 5672
+              name: rabbitmq
+          securityContext:
+            runAsUser: 0
+        - name: rabbitmq-exporter
+          image: kbudde/rabbitmq-exporter
+          ports:
+            - containerPort: 9090
+              name: exporter
+      serviceAccountName: storeuseradmin-sa
+      nodeSelector:
+        beta.kubernetes.io/os: linux

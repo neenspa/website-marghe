@@ -1,0 +1,32 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: webex-notify
+  name: webex-notification
+  namespace: shop-pipelines
+  labels:
+    app.kubernetes.io/version: '0.1'
+    operator.tekton.dev/provider-type: community
+spec:
+  description: This Task can be used to send a notification on a webex room (using Incoming Webhook)
+  params:
+    - name: MD_MESSAGE
+      type: string
+    - name: WEBEX_SECRET_NAME
+      type: string
+    - name: WEBEX_SECRET_KEY
+      type: string
+      default: webhook_url
+  steps:
+    - image: 'alpine/curl:3.14'
+      name: send-message
+      env:
+      - name: WEBEX_URL
+        valueFrom:
+          secretKeyRef:
+            name: $(params.WEBEX_SECRET_NAME)
+            key: $(params.WEBEX_SECRET_KEY)
+      script: >
+        curl --location --request POST "${WEBEX_URL}" --header 'Content-Type: application/json' --data-raw '{"markdown": "$(params.MD_MESSAGE)"}'

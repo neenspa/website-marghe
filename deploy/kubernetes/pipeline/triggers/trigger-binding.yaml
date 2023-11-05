@@ -1,0 +1,13 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: vem-shop-frontend
+  namespace: shop-pipelines
+spec:
+  params:
+    - name: git-full-name
+      value: $(body.repository.full_name)
+    - name: git-repo-name
+      value: $(body.repository.name)
+    - name: git-branch
+      value: $(body.push.changes[0].new.name)

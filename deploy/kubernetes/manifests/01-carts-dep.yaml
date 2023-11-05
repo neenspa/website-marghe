@@ -1,0 +1,57 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    APPD_DEPLOYMENT_NAME: carts
+  name: carts
+  labels:
+    name: carts
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+  namespace: website-marghe
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: carts
+  template:
+    metadata:
+      labels:
+        name: carts
+        backstage.io/kubernetes-id: website-marghe
+        app.kubernetes.io/name: website-marghe
+        rht-gitops.com/janus-argocd: website-marghe
+    spec:
+      containers:
+        - name: carts
+          image: ipateam/carts:1.3.0
+          env:
+            - name: JAVA_OPTS
+              value: -Xms64m -Xmx128m -XX:+UseG1GC -Djava.security.egd=file:/dev/urandom -Dspring.zipkin.enabled=false
+            - name: port
+              value: "8081"
+            - name: mongodb_connection_string
+              value: "mongodb://carts-db:27017/data"
+          resources:
+            limits:
+              cpu: 300m
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          ports:
+            - containerPort: 80
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-volume
+      serviceAccountName: storeuseradmin-sa
+      volumes:
+        - emptyDir:
+            medium: Memory
+          name: tmp-volume
+      nodeSelector:
+        beta.kubernetes.io/os: linux

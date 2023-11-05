@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogue-db
+  labels:
+    name: catalogue-db
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+  namespace: website-marghe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: catalogue-db
+  template:
+    metadata:
+      labels:
+        name: catalogue-db
+        backstage.io/kubernetes-id: website-marghe
+        app.kubernetes.io/name: website-marghe
+        rht-gitops.com/janus-argocd: website-marghe
+    spec:
+      containers:
+        - name: catalogue-db
+          image: ipateam/catalogue-db:3.1
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: fake_password
+            - name: MYSQL_DATABASE
+              value: socksdb
+          ports:
+            - name: mysql
+              containerPort: 3306
+          securityContext:
+            runAsUser: 0
+      serviceAccountName: storeuseradmin-sa
+      nodeSelector:
+        beta.kubernetes.io/os: linux

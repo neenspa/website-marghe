@@ -1,0 +1,19 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: vem-shop-frontend
+  namespace: shop-pipelines
+  annotations:
+    openshift.io/host.generated: 'true'
+    cert-manager.io/issuer-kind: ClusterIssuer
+    cert-manager.io/issuer-name: myissuer
+spec:
+  port: 
+    targetPort: http-listener
+  to:
+    kind: Service
+    name: el-vem-shop-frontend
+    weight: 100
+  tls:
+    termination: edge
+  wildcardPolicy: None

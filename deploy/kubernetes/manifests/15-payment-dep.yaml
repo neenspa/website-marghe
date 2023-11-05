@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  labels:
+    name: payment
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+  namespace: website-marghe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: payment
+  template:
+    metadata:
+      labels:
+        name: payment
+        backstage.io/kubernetes-id: website-marghe
+        app.kubernetes.io/name: website-marghe
+        rht-gitops.com/janus-argocd: website-marghe
+    spec:
+      containers:
+        - name: payment
+          image: weaveworksdemos/payment:0.4.3
+          resources:
+            limits:
+              cpu: 200m
+              memory: 200Mi
+            requests:
+              cpu: 99m
+              memory: 100Mi
+          ports:
+            - containerPort: 80
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 300
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 180
+            periodSeconds: 3
+      serviceAccountName: storeuser-sa
+      nodeSelector:
+        beta.kubernetes.io/os: linux

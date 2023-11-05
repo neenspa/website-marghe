@@ -1,0 +1,152 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: '3'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: git
+  name: git-promote-deployment
+  namespace: shop-pipelines
+  labels:
+    app.kubernetes.io/version: '0.1'
+    operator.tekton.dev/provider-type: community
+spec:
+  description: This Task can be used to update image digest in a Git repo using kustomize
+  params:
+    - name: REPO_URL
+      type: string
+    - name: REVISION
+      type: string
+    - name: NEW_IMAGE
+      type: string
+    - name: NEW_DIGEST
+      type: string
+    - name: KUSTOMIZATION_PATH
+      type: string
+    - name: CURRENT_IMAGE
+      type: string
+    - default: /root
+      description: |
+        Absolute path to the user's home directory.
+      name: USER_HOME
+      type: string
+  results:
+    - description: The commit SHA
+      name: commit
+      type: string
+  steps:
+    - env:
+        - name: WORKSPACE_SSH_DIRECTORY_BOUND
+          value: $(workspaces.ssh-directory.bound)
+        - name: WORKSPACE_SSH_DIRECTORY_PATH
+          value: $(workspaces.ssh-directory.path)
+        - name: WORKSPACE_BASIC_AUTH_DIRECTORY_BOUND
+          value: $(workspaces.basic-auth.bound)
+        - name: WORKSPACE_BASIC_AUTH_DIRECTORY_PATH
+          value: $(workspaces.basic-auth.path)
+        - name: PARAM_USER_HOME
+          value: $(params.USER_HOME)
+      image: 'docker.io/alpine/git:v2.26.2'
+      name: git-clone
+      resources: {}
+      script: >
+        if [ "${WORKSPACE_BASIC_AUTH_DIRECTORY_BOUND}" = "true" ] ; then
+          cp "${WORKSPACE_BASIC_AUTH_DIRECTORY_PATH}/.git-credentials" "${PARAM_USER_HOME}/.git-credentials"
+          cp "${WORKSPACE_BASIC_AUTH_DIRECTORY_PATH}/.gitconfig" "${PARAM_USER_HOME}/.gitconfig"
+          chmod 400 "${PARAM_USER_HOME}/.git-credentials"
+          chmod 400 "${PARAM_USER_HOME}/.gitconfig"
+        fi
+
+
+        if [ "${WORKSPACE_SSH_DIRECTORY_BOUND}" = "true" ] ; then
+          cp -R "${WORKSPACE_SSH_DIRECTORY_PATH}" "${PARAM_USER_HOME}"/.ssh
+          chmod 700 "${PARAM_USER_HOME}"/.ssh
+          chmod -R 400 "${PARAM_USER_HOME}"/.ssh/*
+          wget -O /root/.ssh/known_hosts https://bitbucket.org/site/ssh
+        fi
+
+
+        rm -rf git-update-digest-workdir
+
+        git clone -b $(params.REVISION) $(params.REPO_URL) git-update-digest-workdir
+      workingDir: $(workspaces.source.path)
+    - image: 'k8s.gcr.io/kustomize/kustomize:v3.8.7'
+      name: update-digest
+      resources: {}
+      script: >
+        cd git-update-digest-workdir/$(params.KUSTOMIZATION_PATH)
+
+        /app/kustomize edit set image
+        $(params.CURRENT_IMAGE)=$(params.NEW_IMAGE):$(params.NEW_DIGEST)
+
+        echo "##########################"
+
+        echo "### kustomization.yaml ###"
+
+        echo "##########################"
+
+        cat kustomization.yaml
+      workingDir: $(workspaces.source.path)
+    - env:
+        - name: WORKSPACE_SSH_DIRECTORY_BOUND
+          value: $(workspaces.ssh-directory.bound)
+        - name: WORKSPACE_SSH_DIRECTORY_PATH
+          value: $(workspaces.ssh-directory.path)
+        - name: WORKSPACE_BASIC_AUTH_DIRECTORY_BOUND
+          value: $(workspaces.basic-auth.bound)
+        - name: WORKSPACE_BASIC_AUTH_DIRECTORY_PATH
+          value: $(workspaces.basic-auth.path)
+        - name: PARAM_USER_HOME
+          value: $(params.USER_HOME)
+      image: 'docker.io/alpine/git:v2.26.2'
+      name: git-commit
+      resources: {}
+      script: |
+        if [ "${WORKSPACE_BASIC_AUTH_DIRECTORY_BOUND}" = "true" ] ; then
+          cp "${WORKSPACE_BASIC_AUTH_DIRECTORY_PATH}/.git-credentials" "${PARAM_USER_HOME}/.git-credentials"
+          cp "${WORKSPACE_BASIC_AUTH_DIRECTORY_PATH}/.gitconfig" "${PARAM_USER_HOME}/.gitconfig"
+          chmod 400 "${PARAM_USER_HOME}/.git-credentials"
+          chmod 400 "${PARAM_USER_HOME}/.gitconfig"
+        fi
+
+        if [ "${WORKSPACE_SSH_DIRECTORY_BOUND}" = "true" ] ; then
+          cp -R "${WORKSPACE_SSH_DIRECTORY_PATH}" "${PARAM_USER_HOME}"/.ssh
+          chmod 700 "${PARAM_USER_HOME}"/.ssh
+          chmod -R 400 "${PARAM_USER_HOME}"/.ssh/*
+          wget -O /root/.ssh/known_hosts https://bitbucket.org/site/ssh
+        fi
+
+        cd git-update-digest-workdir
+        git config user.email "ipa@vem.com"
+        git config user.name "Ipa Pipeline"
+        git status
+        git add $(params.KUSTOMIZATION_PATH)/kustomization.yaml
+        git commit -m "[$(context.taskRun.name)] Image digest updated"
+        git push
+        RESULT_SHA="$(git rev-parse HEAD | tr -d '\n')"
+        EXIT_CODE="$?"
+        if [ "$EXIT_CODE" != 0 ]
+        then
+          exit $EXIT_CODE
+        fi
+        # Make sure we don't add a trailing newline to the result!
+        echo -n "$RESULT_SHA" > $(results.commit.path)
+      workingDir: $(workspaces.source.path)
+  workspaces:
+    - description: The workspace consisting of work project.
+      name: source
+    - description: |
+        A .ssh directory with private key, known_hosts, config, etc. Copied to
+        the user's home before git commands are executed. Used to authenticate
+        with the git remote when performing the clone. Binding a Secret to this
+        Workspace is strongly recommended over other volume types.
+      name: ssh-directory
+      optional: true
+    - description: |
+        A Workspace containing a .gitconfig and .git-credentials file. These
+        will be copied to the user's home before any git commands are run. Any
+        other files in this Workspace are ignored. It is strongly recommended
+        to use ssh-directory over basic-auth whenever possible and to bind a
+        Secret to this Workspace over other volume types.
+      name: basic-auth
+      optional: true

@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-end
+  namespace: website-marghe
+  labels:
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: front-end
+  template:
+    metadata:
+      labels:
+        name: front-end
+        backstage.io/kubernetes-id: website-marghe
+        app.kubernetes.io/name: website-marghe
+        rht-gitops.com/janus-argocd: website-marghe
+    spec:
+      containers:
+        - name: front-end
+          image: docker.io/ipateam/vemshop-frontend@sha256:2c6130f34d24744a1f2636072c9a9ec2c59fe49b543af18cbf785ede762270c0
+          resources:
+            limits:
+              cpu: 300m
+              memory: 1000Mi
+            requests:
+              cpu: 100m
+              memory: 300Mi
+          ports:
+            - containerPort: 8079
+          env:
+            - name: SESSION_REDIS
+              value: "true"
+            - name: INFRA
+              value: "vsphere"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8079
+            initialDelaySeconds: 300
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8079
+            initialDelaySeconds: 30
+            periodSeconds: 3
+      serviceAccountName: storeuser-sa
+      nodeSelector:
+        beta.kubernetes.io/os: linux

@@ -1,0 +1,53 @@
+---
+kind: SecurityContextConstraints
+apiVersion: security.openshift.io/v1
+metadata:
+  name: website-marghe-scc-storeuser
+  labels:
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+allowHostPID: false
+allowHostNetwork: false
+allowPrivilegeEscalation: true
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+readOnlyRootFilesystem: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+runAsUser:
+  type: MustRunAs
+  uid: 10001
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:website-marghe:storeuser-sa
+---
+kind: SecurityContextConstraints
+apiVersion: security.openshift.io/v1
+metadata:
+  name: website-marghe-scc-storeuseradmin
+  annotations:
+    backstage.io/kubernetes-id: website-marghe
+allowHostPID: false
+allowHostNetwork: false
+allowPrivilegeEscalation: true
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+readOnlyRootFilesystem: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:website-marghe:storeuseradmin-sa

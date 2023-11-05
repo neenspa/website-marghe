@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+- ../../base
+
+patchesJson6902:
+- target:
+    version: v1
+    kind: Deployment
+    name: carts
+  patch: |-
+    - op: add
+      path: "/spec/template/spec/containers/0/env/-"
+      value:
+        name: db
+        value: "local-cluster.carts-db.sock-shop.svc.clusterset.local,os-aws-sno.carts-db.sock-shop.svc.clusterset.local/data?replicaSet=rs0"
+- target:
+    version: v1
+    kind: Deployment
+    name: front-end
+  patch: |-
+    - op: add
+      path: "/spec/template/spec/containers/0/env/-"
+      value:
+        name: INFRA
+        value: "aws"
+- target:
+    version: v1
+    kind: Deployment
+    name: user-dep
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 0

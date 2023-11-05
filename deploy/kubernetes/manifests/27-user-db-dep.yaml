@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-db
+  labels:
+    name: user-db
+    backstage.io/kubernetes-id: website-marghe
+    app.kubernetes.io/name: website-marghe
+    rht-gitops.com/janus-argocd: website-marghe
+  namespace: website-marghe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: user-db
+  template:
+    metadata:
+      labels:
+        name: user-db
+        backstage.io/kubernetes-id: website-marghe
+        app.kubernetes.io/name: website-marghe
+        rht-gitops.com/janus-argocd: website-marghe
+    spec:
+      containers:
+        - name: user-db
+          image: mongo:5.0.11
+          ports:
+            - name: mongo
+              containerPort: 27017
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-volume
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            medium: Memory
+      serviceAccountName: storeuseradmin-sa
+      nodeSelector:
+        beta.kubernetes.io/os: linux

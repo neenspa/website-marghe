@@ -1,0 +1,56 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: vem-shop-frontend
+  namespace: shop-pipelines
+spec:
+  params:
+    - name: git-full-name
+      description: The git repository full name
+    - name: git-branch
+      description: The git branch
+      default: master
+    - name: git-repo-name
+      description: The name of the deployment to be created / patched
+
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: build-deploy-$(tt.params.git-repo-name)-
+      spec:
+        pipelineRef:
+          name: clone-build-push
+        params:
+          - name: repo-url
+            value: 'git@bitbucket.org:$(tt.params.git-full-name).git'
+          - name: deployment-repo-url
+            value: 'git@bitbucket.org:ipa-team/shop-demo.git'
+          - name: image-reference
+            value: docker.io/ipateam/vemshop-frontend
+          - name: revision
+            value: $(tt.params.git-branch)
+          - name: build-args
+            value: ''
+          - name: kustomization-path
+            value: deploy/kubernetes/manifests/base
+          - name: termination-message
+            value: '🤖 Tekton pipeline executed successfully. Argo will deploy shop application using new manifests.'
+        workspaces:
+          - name: shared-data
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+          - name: docker-credentials
+            secret:
+              secretName: dockerconfig-secret
+          - name: git-credentials
+            secret:
+              secretName: git-credentials
+          - name: git-credentials-pipeline
+            secret:
+              secretName: git-credentials-pipeline        

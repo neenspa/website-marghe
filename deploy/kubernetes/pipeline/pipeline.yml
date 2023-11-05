@@ -1,0 +1,103 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: clone-build-push
+  namespace: shop-pipelines
+spec:
+  description: |
+    This pipeline clones a git repo, builds a Docker image with Buildah and
+    pushes it to a registry    
+  params:
+  - name: repo-url
+    type: string
+  - name: deployment-repo-url
+    type: string
+  - name: image-reference
+    type: string
+  - name: revision
+    type: string
+  - name: build-args
+    type: string
+  - name: kustomization-path
+    type: string
+  - name: termination-message
+    type: string
+  workspaces:
+  - name: shared-data
+  - name: docker-credentials
+  - name: git-credentials
+  - name: git-credentials-pipeline
+  tasks:
+  ## FETCH SOURCE PROJECT FROM GIT ##
+  - name: fetch-source
+    timeout: 2m
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: shared-data
+    - name: ssh-directory
+      workspace: git-credentials
+    params:
+    - name: url
+      value: $(params.repo-url)
+    - name: revision
+      value: $(params.revision)
+  ## BUILD PROJECT AND PUSH IMAGE TO REGISTRY ##
+  - name: build-push
+    timeout: 5m
+    runAfter: ["fetch-source"]
+    taskRef:
+      name: buildah
+      kind: ClusterTask
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: dockerconfig
+      workspace: docker-credentials
+    params:
+    - name: IMAGE
+      value: $(params.image-reference):$(tasks.fetch-source.results.commit)
+    - name: TLSVERIFY
+      value: "false"
+    - name: BUILD_EXTRA_ARGS
+      value: $(params.build-args)
+  ## UPDATE ARGO-CD DEPLOYMENTS FILE ##
+  - name: update-deployment
+    timeout: 2m
+    runAfter: ["build-push"]
+    params:
+      - name: REPO_URL
+        value: $(params.deployment-repo-url)
+      - name: REVISION
+        value: $(params.revision)
+      - name: CURRENT_IMAGE
+        value: $(params.image-reference)
+      - name: NEW_IMAGE
+        value: $(params.image-reference)
+      - name: NEW_DIGEST
+        value: $(tasks.fetch-source.results.commit)
+      - name: KUSTOMIZATION_PATH
+        value: $(params.kustomization-path)
+    taskRef:
+       kind: Task
+       name: git-promote-deployment
+    workspaces:
+      - name: source
+        workspace: shared-data
+      - name: ssh-directory
+        workspace: git-credentials-pipeline
+  ## SEND WEBEX MESSAGE ##
+  - name: webex-notification
+    timeout: 1m
+    runAfter: ["update-deployment"]
+    params:
+      - name: MD_MESSAGE
+        value: $(params.termination-message)
+      - name: WEBEX_SECRET_NAME
+        value: 'webex-secret'
+    taskRef:
+       kind: Task
+       name: webex-notification
+  ## END ##

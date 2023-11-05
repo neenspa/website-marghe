@@ -1,0 +1,17 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: Trigger
+metadata:
+  name: vem-shop-frontend-trigger
+  namespace: shop-pipelines
+spec:
+  serviceAccountName: pipeline
+  interceptors:
+    - ref:
+        name: "cel"
+      params:
+        - name: "filter"
+          value: header.match('X-Event-Key', 'repo:push') && body.push.changes[0].new.name =='master'
+  bindings:
+    - ref: vem-shop-frontend
+  template:
+    ref: vem-shop-frontend
